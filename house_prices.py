@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import ElasticNet, Lasso,  BayesianRidge, LassoLarsIC, LinearRegression, LogisticRegression
+from sklearn.ensemble import RandomForestRegressor,  GradientBoostingRegressor
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder, FunctionTransformer
 
 # Read the data
 train_data = pd.read_csv(r'C:\_ws\datasets\Housing Prices\train.csv', index_col='Id')
@@ -18,10 +19,11 @@ train_data.drop(['SalePrice'], axis=1, inplace=True)
 
 # Select numeric columns only
 numeric_cols = [cname for cname in train_data.columns if train_data[cname].dtype in ['int64', 'float64']]
-# categoric_cols = ['SaleCondition', 'SaleType', 'Functional', 'KitchenQual', 'Electrical', 'Street', 'Utilities', 'LotShape']
-categoric_cols = ['SaleCondition', 'LotConfig', 'Neighborhood', 'Condition1', 'Condition2']
+categoric_cols =  [cname for cname in train_data.columns if train_data[cname].dtype in ['object']]
+# categoric_cols = ['SaleCondition', 'LotConfig', 'Neighborhood', 'Condition1', 'Condition2']
 
 all_cols = numeric_cols + categoric_cols
+print(len(all_cols))
 
 X = train_data[all_cols].copy()
 X_test = test_data[all_cols].copy()
@@ -35,15 +37,19 @@ categorical_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='co
                                           ('onehot', OneHotEncoder(handle_unknown='ignore'))]) # Your code here
 
 # Bundle preprocessing for numerical and categorical data
-preprocessor = ColumnTransformer(
+preprocessor = ColumnTransformer(sparse_threshold=0,
     transformers=[
         ('num', numerical_transformer, numeric_cols),
-        ('cat', categorical_transformer, categoric_cols)
+        ('cat', categorical_transformer, categoric_cols),
     ])
+
+# model = LinearRegression()
+model = RandomForestRegressor(n_estimators=100, random_state=4)
+# model = ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3)
 
 my_pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
-    ('model', RandomForestRegressor(n_estimators=200, random_state=4))
+    ('model', model)
 ])
 
 if 1:
@@ -68,12 +74,12 @@ if 1:
                            'SalePrice': preds_test})
     output.to_csv('submission.csv', index=False)
 
-if 1:
+if 0:
     from sklearn.model_selection import cross_val_score
 
     # Multiply by -1 since sklearn calculates *negative* MAE
     scores = -1 * cross_val_score(my_pipeline, X, y,
                                   cv=5,
-                                  scoring='neg_mean_squared_log_error')
+                                  scoring='neg_mean_squared_log_error', verbose=True)
 
     print("Average MRSLE score:", np.sqrt(scores.mean()))
