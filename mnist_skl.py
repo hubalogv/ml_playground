@@ -4,7 +4,7 @@ from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.metrics import accuracy_score
 
 from keras.models import Sequential
-from keras.layers import Dense
+from keras import layers
 from keras.wrappers.scikit_learn import KerasClassifier
 
 train = pd.read_csv(r"C:\_ws\datasets\mnist\train.csv")
@@ -25,9 +25,12 @@ assert isinstance(Y_val, pd.Series)
 
 def dense_model_0():
     model = Sequential()
-    model.add(Dense(100, input_dim=784, activation='relu'))
-    model.add(Dense(200, activation='relu'))
-    model.add(Dense(10, activation='softmax'))
+    model.add(layers.Dense(600, input_dim=784, activation='relu'))
+    model.add(layers.Dropout(0.3),)
+    model.add(layers.Dense(200, activation='relu'))
+    model.add(layers.Dropout(0.3),)
+    model.add(layers.Dense(100, activation='relu'))
+    model.add(layers.Dense(10, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     return model
 
@@ -41,7 +44,7 @@ predictions = model.predict(X_val)
 
 print('score: ', accuracy_score(Y_val, predictions))
 
-if 1:
+if 0:
     model.fit(X, Y)
     results = model.predict(X_test)
 
