@@ -1,8 +1,11 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.metrics import accuracy_score
 
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasClassifier
 
 train = pd.read_csv(r"C:\_ws\datasets\mnist\train.csv")
 X_test = pd.read_csv(r"C:\_ws\datasets\mnist\test.csv")
@@ -14,10 +17,23 @@ X_train = train.drop(labels=["label"], axis=1)
 
 random_seed = 2
 
+X = X_train/255.0
+X_test = X_test/255.0
+
 X_train, X_val, Y_train, Y_val = train_test_split(X_train, Y_train, test_size=0.1, random_state=random_seed)
 assert isinstance(Y_val, pd.Series)
 
-model = LogisticRegression(max_iter=50)
+def dense_model_0():
+    model = Sequential()
+    model.add(Dense(100, input_dim=784, activation='relu'))
+    model.add(Dense(200, activation='relu'))
+    model.add(Dense(10, activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
+
+model = KerasClassifier(build_fn=dense_model_0, epochs=50, batch_size=200)
+# model = LogisticRegression(max_iter=50)
+# model = RidgeClassifier()
 
 model.fit(X_train, Y_train)
 
