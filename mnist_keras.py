@@ -1,11 +1,15 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-
 from keras.models import Sequential
-from keras import layers
+from keras import layers, callbacks
 from keras.wrappers.scikit_learn import KerasClassifier
+
+random_seed = 2
+from numpy.random import seed
+seed(random_seed)
+from tensorflow.random import set_seed
+set_seed(random_seed)
 
 train = pd.read_csv(r"C:\_ws\datasets\mnist\train.csv")
 X_test = pd.read_csv(r"C:\_ws\datasets\mnist\test.csv")
@@ -22,7 +26,6 @@ X_train = X_train.values.reshape(X_train.shape[0], img_rows, img_cols, 1)
 
 input_shape = (img_rows, img_cols, 1)
 
-random_seed = 2
 
 X = X_train / 255.0
 X_test = X_test / 255.0
@@ -66,7 +69,17 @@ model.compile(
     metrics=["accuracy"]
 )
 
-history = model.fit(X_train, Y_train, validation_data=(X_val, Y_val), epochs=50, batch_size=200)
+checkpoint_filepath = 'mnist.{epoch:02d}-{val_accuracy:.4f}.h5'
+model_checkpoint_callback = callbacks.ModelCheckpoint(
+    filepath=checkpoint_filepath,
+    monitor='val_accuracy',
+    mode='max',
+    save_best_only=True)
+
+history = model.fit(X_train, Y_train,
+                    validation_data=(X_val, Y_val),
+                    callbacks=[model_checkpoint_callback],
+                    epochs=50, batch_size=200)
 
 history_df = pd.DataFrame(history.history)
 print(history_df.loc[:, ['loss', 'val_loss']])
