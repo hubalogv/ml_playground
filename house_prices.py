@@ -8,39 +8,55 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, FunctionTransformer
 
+def preprocess_data(data):
+    """
+    Do any preprocessing here which would be difficult to debug with the pipeline
+    Args:
+        data (pd.DataFrame):
+
+    Returns (pd.DataFrame):
+
+    """
+    data['MSSubClass'] = data['MSSubClass'].apply(str)
+    data['YearBuilt'] = 2011 - data['YearBuilt']
+    # data.SalePrice = np.log1p(data.SalePrice)
+    # data['YrSold'] = data['YrSold'].apply(str)
+    # data['MoSold'] = data['MoSold'].apply(str)
+    # data.drop(['YrSold'], axis=1)
+
+    return data
+
 # Read the data
 train_data = pd.read_csv(r'C:\_ws\datasets\Housing Prices\train.csv', index_col='Id')
 test_data = pd.read_csv(r'C:\_ws\datasets\Housing Prices\test.csv', index_col='Id')
 
-# Remove rows with missing target, separate target from predictors
-# train_data.dropna(axis=0, subset=['SalePrice'], inplace=True)
+train_data = train_data.loc[train_data.GrLivArea < 4000]
+# train_data = train_data.loc[train_data.SalePrice < 600000]
+
 y = train_data.SalePrice
 train_data.drop(['SalePrice'], axis=1, inplace=True)
 
-# Select numeric columns only
-numeric_cols = [cname for cname in train_data.columns if train_data[cname].dtype in ['int64', 'float64']]
-categoric_cols =  [cname for cname in train_data.columns if train_data[cname].dtype in ['object']]
-# categoric_cols = ['SaleCondition', 'LotConfig', 'Neighborhood', 'Condition1', 'Condition2']
+# y = np.log1p(y)
 
-all_cols = numeric_cols + categoric_cols
-print(len(all_cols))
+X = train_data.copy()
+X_test = test_data.copy()
 
-X = train_data[all_cols].copy()
-X_test = test_data[all_cols].copy()
+X = preprocess_data(X)
+X_test = preprocess_data(X_test)
+
+numeric_cols = [cname for cname in X.columns if X[cname].dtype in ['int64', 'float64']]
+categoric_cols =  [cname for cname in X.columns if X[cname].dtype in ['object']]
 
 
-# Preprocessing for numerical data
-numerical_transformer = SimpleImputer(strategy='mean') # Your code here
-
-# Preprocessing for categorical data
+numerical_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='mean'))])
 categorical_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='constant', fill_value='NA')),
-                                          ('onehot', OneHotEncoder(handle_unknown='ignore'))]) # Your code here
+                                          ('onehot', OneHotEncoder(handle_unknown='ignore'))])
 
 # Bundle preprocessing for numerical and categorical data
-preprocessor = ColumnTransformer(sparse_threshold=0,
+preprocessor = ColumnTransformer(
     transformers=[
         ('num', numerical_transformer, numeric_cols),
-        ('cat', categorical_transformer, categoric_cols),
+        ('cat', categorical_transformer, categoric_cols)
     ])
 
 # model = LinearRegression()
@@ -53,7 +69,7 @@ my_pipeline = Pipeline(steps=[
 ])
 
 if 1:
-    from sklearn.metrics import mean_absolute_error, mean_squared_log_error
+    from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
     X_train, X_valid, y_train, y_valid = train_test_split(X, y,
                                                           train_size=0.8,
                                                           test_size=0.2,
@@ -65,6 +81,12 @@ if 1:
     # Preprocessing of validation data, get predictions
     preds = my_pipeline.predict(X_valid)
 
+    # preds = np.exp(preds) - 1
+    # y_valid = np.exp(y_valid) - 1
+
+    print('MAX error:', max_error(y_valid, preds))
+    print('Min error:', max(y_valid - preds))
+    print('Median Absolutel error:', median_absolute_error(y_valid, preds))
     print('MAE:', mean_absolute_error(y_valid, preds))
     print('MRSLE:', np.sqrt(mean_squared_log_error(y_valid, preds)))
 
@@ -74,7 +96,7 @@ if 1:
                            'SalePrice': preds_test})
     output.to_csv('submission.csv', index=False)
 
-if 0:
+if 1:
     from sklearn.model_selection import cross_val_score
 
     # Multiply by -1 since sklearn calculates *negative* MAE
@@ -82,4 +104,5 @@ if 0:
                                   cv=5,
                                   scoring='neg_mean_squared_log_error', verbose=True)
 
-    print("Average MRSLE score:", np.sqrt(scores.mean()))
+    print("Average MRSLE CV score:", np.sqrt(scores.mean()))
+    # Average MRSLE CV score: 0.1402649418684216
