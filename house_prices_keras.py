@@ -5,6 +5,9 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import layers, callbacks
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
 
 random_seed = 2
 from numpy.random import seed
@@ -36,9 +39,9 @@ def preprocess_data(data):
 
 # Remove rows with missing target, separate target from predictors
 # train_data.dropna(axis=0, subset=['SalePrice'], inplace=True)
+train_data = train_data.loc[train_data.GrLivArea < 4000]
 y = train_data.SalePrice
 train_data.drop(['SalePrice'], axis=1, inplace=True)
-train_data.drop(['SaleCondition'], axis=1, inplace=True)
 
 # Select numeric columns only
 numeric_cols = [cname for cname in train_data.columns if train_data[cname].dtype in ['int64', 'float64']]
@@ -93,20 +96,11 @@ def build_model(input_dim):
     model.compile(loss='mae', optimizer='adam',  metrics=["accuracy"])
     return model
 
-def build_model(input_dim):
+def build_model_2(input_dim):
     model = Sequential()
-    model.add(layers.BatchNormalization(input_dim=input_dim))
-    model.add(layers.Dense(800, kernel_initializer='normal', activation='relu'))
-    model.add(layers.BatchNormalization())
+    model.add(layers.Dense(400, input_dim=input_dim))
     model.add(layers.Dropout(0.3))
-    model.add(layers.Dense(1600, kernel_initializer='normal', activation='relu'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Dropout(0.3))
-    model.add(layers.Dense(400, kernel_initializer='normal', activation='relu'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Dropout(0.3))
-    model.add(layers.Dense(400, kernel_initializer='normal', activation='relu'))
-    # model.add(Dense(25, kernel_initializer='normal', activation='relu'))
+    model.add(layers.Dense(400, activation='relu'))
     model.add(layers.Dense(1, kernel_initializer='normal'))
     # Compile model
     model.compile(loss='mae', optimizer='adam',  metrics=["accuracy"])
@@ -114,14 +108,13 @@ def build_model(input_dim):
 
 if 1:
     print(X.head())
-    from sklearn.metrics import mean_absolute_error, mean_squared_log_error
     X_train, X_valid, y_train, y_valid = train_test_split(X, y,
                                                           train_size=0.8,
                                                           test_size=0.2,
                                                           random_state=random_seed)
 
 
-    model = build_model(X_train.shape[1])
+    model = build_model_2(X_train.shape[1])
 
     checkpoint_filepath = 'hp_{val_loss:.4f}.h5'
     model_checkpoint_callback = callbacks.ModelCheckpoint(
@@ -134,20 +127,27 @@ if 1:
         X_train, y_train,
         validation_data=(X_valid, y_valid),
         batch_size=50,
-        epochs=300,
+        epochs=500,
         callbacks=[model_checkpoint_callback]
     )
 
     # Show the learning curves
     history_df = pd.DataFrame(history.history)
-    print(history_df.loc[:, ['loss', 'val_loss']])
+    history_df.loc[:, ['loss', 'val_loss']].plot()
 
 
-    preds = model.predict(X_valid)
+    preds = model.predict(X_valid)[:,0]
+    plt.show()
 
+    print('MAX error:', max_error(y_valid, preds))
+    print('Min error:', max(y_valid - preds))
+    print('Median Absolutel error:', median_absolute_error(y_valid, preds))
     print('MAE:', mean_absolute_error(y_valid, preds))
     print('MRSLE:', np.sqrt(mean_squared_log_error(y_valid, preds)))
-    #
+
+    # sns.displot(y_valid - preds)
+    # plt.show()
+
     # preds_test = model.predict(X_test)
     # # Save test predictions to file
     # output = pd.DataFrame({'Id': X_test.index,
