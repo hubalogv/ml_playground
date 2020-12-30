@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from functools import partial
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNet, Lasso,  BayesianRidge, LassoLarsIC, LinearRegression, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor,  GradientBoostingRegressor
@@ -7,6 +8,16 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, FunctionTransformer
+from tensorflow.keras.wrappers.scikit_learn import KerasRegressor
+from tensorflow.keras import layers
+from tensorflow.keras.models import Sequential
+
+def linear(input_dim):
+    model = Sequential()
+    model.add(layers.Dense(1, input_dim=input_dim))
+    # Compile model
+    model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
+    return model
 
 def preprocess_data(data):
     """
@@ -62,6 +73,9 @@ preprocessor = ColumnTransformer(
 # model = LinearRegression()
 model = RandomForestRegressor(n_estimators=100, random_state=4)
 # model = ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3)
+
+# constr = partial(linear, 315)
+# model = KerasRegressor(build_fn=constr, nb_epoch=100, batch_size=100, verbose=True)
 
 my_pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
