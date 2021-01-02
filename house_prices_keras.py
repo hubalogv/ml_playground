@@ -15,162 +15,163 @@ seed(random_seed)
 from tensorflow.random import set_seed
 set_seed(random_seed)
 
-# Read the data
-train_data = pd.read_csv(r'C:\_ws\datasets\Housing Prices\train.csv', index_col='Id')
-test_data = pd.read_csv(r'C:\_ws\datasets\Housing Prices\test.csv', index_col='Id')
+class HousePricesPipeline(object):
 
-def preprocess_data(data):
-    """
-    Do any preprocessing here which would be difficult to debug with the pipeline
-    Args:
-        data (pd.DataFrame):
+    def __init__(self):
+        super(HousePricesPipeline, self).__init__()
+        self.x = None  # type: pd.DataFrame
+        self.y = None  # type: pd.DataFrame
+        self.x_test = None  # type: pd.DataFrame
+        self.y_test = None  # type: pd.DataFrame
 
-    Returns (pd.DataFrame):
+    def load_data(self):
+        train_data = pd.read_csv(r'C:\_ws\datasets\Housing Prices\train.csv', index_col='Id')
+        test_data = pd.read_csv(r'C:\_ws\datasets\Housing Prices\test.csv', index_col='Id')
+        train_data = train_data.loc[train_data.GrLivArea < 4000]
+        self.y = train_data.SalePrice
+        train_data.drop(['SalePrice'], axis=1, inplace=True)
 
-    """
-    data['MSSubClass'] = data['MSSubClass'].apply(str)
-    data['YearBuilt'] = 2011 - data['YearBuilt']
-    # data.SalePrice = np.log1p(data.SalePrice)
-    # data['YrSold'] = data['YrSold'].apply(str)
-    # data['MoSold'] = data['MoSold'].apply(str)
-    # data.drop(['YrSold'], axis=1)
+        self.x = train_data
+        self.x_test = test_data
 
-    return data
+    def pre_process_data(self):
+        self.x['MSSubClass'] = self.x['MSSubClass'].apply(str)
+        self.x['YearBuilt'] = 2011 - self.x['YearBuilt']
+        # data.SalePrice = np.log1p(data.SalePrice)
+        # data['YrSold'] = data['YrSold'].apply(str)
+        # data['MoSold'] = data['MoSold'].apply(str)
+        # data.drop(['YrSold'], axis=1)
 
-# Remove rows with missing target, separate target from predictors
-# train_data.dropna(axis=0, subset=['SalePrice'], inplace=True)
-train_data = train_data.loc[train_data.GrLivArea < 4000]
-y = train_data.SalePrice
-train_data.drop(['SalePrice'], axis=1, inplace=True)
+        numeric_cols = [cname for cname in self.x.columns if self.x[cname].dtype in ['int64', 'float64']]
+        categoric_cols = [cname for cname in self.x.columns if self.x[cname].dtype in ['object']]
+        all_cols = numeric_cols + categoric_cols
 
-# Select numeric columns only
-numeric_cols = [cname for cname in train_data.columns if train_data[cname].dtype in ['int64', 'float64']]
-categoric_cols = [cname for cname in train_data.columns if train_data[cname].dtype in ['object']]
+        for col in numeric_cols:
+            self.x[col] = self.x[col].fillna(0)
+            self.x_test[col] = self.x_test[col].fillna(0)
 
-all_cols = numeric_cols + categoric_cols
+        for col in categoric_cols:
 
-X = train_data.copy()
-X_test = test_data.copy()
+            self.x[col] = self.x[col].fillna('None')
+            self.x_test[col] = self.x_test[col].fillna('None')
 
-X = preprocess_data(X)
-X_test = preprocess_data(X_test)
+        # print(X.isnull().values.any())
+        # print(X_test.isnull().values.any())
 
-for col in numeric_cols:
-    X[col] = X[col].fillna(0)
-    X_test[col] = X_test[col].fillna(0)
+        # label_encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
+        # for col in categoric_cols:
+        #     print(col)
+        #     X[col] = label_encoder.fit_transform(X[col])
+        #     X_test[col] = label_encoder.transform(X_test[col])
 
-for col in categoric_cols:
+        self.x_test = pd.get_dummies(self.x_test, drop_first=True)
+        self.x = pd.get_dummies(self.x, drop_first=True)
 
-    X[col] = X[col].fillna('None')
-    X_test[col] = X_test[col].fillna('None')
+        self.x, self.x_test = self.x.align(self.x_test, join='left', axis=1)
 
-# print(X.isnull().values.any())
-# print(X_test.isnull().values.any())
+        print(self.x_test.isnull().values.any())
 
-# label_encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
-# for col in categoric_cols:
-#     print(col)
-#     X[col] = label_encoder.fit_transform(X[col])
-#     X_test[col] = label_encoder.transform(X_test[col])
+    def build_model(self, model_id=None):
+        input_dim = self.x.shape[1]
+        if model_id == 'deep':
+            model = Sequential()
+            model.add(layers.BatchNormalization(input_dim=input_dim))
+            model.add(layers.Dense(800, kernel_initializer='normal', activation='relu'))
+            model.add(layers.BatchNormalization())
+            model.add(layers.Dropout(0.3))
+            model.add(layers.Dense(1600, kernel_initializer='normal', activation='relu'))
+            model.add(layers.BatchNormalization())
+            model.add(layers.Dropout(0.3))
+            model.add(layers.Dense(400, kernel_initializer='normal', activation='relu'))
+            model.add(layers.BatchNormalization())
+            model.add(layers.Dropout(0.3))
+            model.add(layers.Dense(400, kernel_initializer='normal', activation='relu'))
+            # model.add(Dense(25, kernel_initializer='normal', activation='relu'))
+            model.add(layers.Dense(1, kernel_initializer='normal'))
+            # Compile model
+            model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
+            return model
 
-X_test = pd.get_dummies(X_test, drop_first=True)
-X = pd.get_dummies(X, drop_first=True)
+        elif model_id == 'flat':
+            model = Sequential()
+            model.add(layers.Dense(400, input_dim=input_dim))
+            model.add(layers.Dropout(0.3))
+            # model.add(layers.BatchNormalization())
+            model.add(layers.Activation('relu'))
+            # model.add(layers.Dense(400, activation='relu'))
+            model.add(layers.Dense(1, kernel_initializer='normal'))
+            # Compile model
+            lr_schedule = optimizers.schedules.ExponentialDecay(
+                initial_learning_rate=0.01,
+                decay_steps=10000,
+                decay_rate=0.8)
+            model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=["mean_squared_logarithmic_error"])
+            return model
 
-X, X_test = X.align(X_test, join='left', axis=1)
+        elif model_id == 'lin':
+            model = Sequential()
+            model.add(layers.Dense(1, input_dim=input_dim))
+            # Compile model
+            model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
+            return model
+        else:
+            raise ValueError('unknown model id')
 
-print(X_test.isnull().values.any())
-
-def build_model(input_dim):
-    model = Sequential()
-    model.add(layers.BatchNormalization(input_dim=input_dim))
-    model.add(layers.Dense(800, kernel_initializer='normal', activation='relu'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Dropout(0.3))
-    model.add(layers.Dense(1600, kernel_initializer='normal', activation='relu'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Dropout(0.3))
-    model.add(layers.Dense(400, kernel_initializer='normal', activation='relu'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Dropout(0.3))
-    model.add(layers.Dense(400, kernel_initializer='normal', activation='relu'))
-    # model.add(Dense(25, kernel_initializer='normal', activation='relu'))
-    model.add(layers.Dense(1, kernel_initializer='normal'))
-    # Compile model
-    model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
-    return model
-
-def build_model_2(input_dim):
-    model = Sequential()
-    model.add(layers.Dense(400, input_dim=input_dim))
-    model.add(layers.Dropout(0.3))
-    # model.add(layers.BatchNormalization())
-    model.add(layers.Activation('relu'))
-    # model.add(layers.Dense(400, activation='relu'))
-    model.add(layers.Dense(1, kernel_initializer='normal'))
-    # Compile model
-    lr_schedule = optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=0.01,
-        decay_steps=10000,
-        decay_rate=0.8)
-    model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=["mean_squared_logarithmic_error"])
-    return model
-
-def linear(input_dim):
-    model = Sequential()
-    model.add(layers.Dense(1, input_dim=input_dim))
-    # Compile model
-    model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
-    return model
-
-if 1:
-    print(X.head())
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y,
-                                                          train_size=0.8,
-                                                          test_size=0.2,
-                                                          random_state=random_seed)
+    def train_eval(self):
+        x_train, x_valid, y_train, y_valid = train_test_split(self.x, self.y,
+                                                              train_size=0.8,
+                                                              test_size=0.2,
+                                                              random_state=random_seed)
 
 
-    model = build_model_2(X_train.shape[1])
-    # model = linear(X_train.shape[1])
+        model = self.build_model('flat')
+        # model = linear(X_train.shape[1])
 
-    checkpoint_filepath = 'hp_{val_loss:.4f}.h5'
-    model_checkpoint_callback = callbacks.ModelCheckpoint(
-        filepath=checkpoint_filepath,
-        monitor='val_loss',
-        mode='max',
-        save_best_only=True)
+        checkpoint_filepath = 'hp_{val_loss:.4f}.h5'
+        model_checkpoint_callback = callbacks.ModelCheckpoint(
+            filepath=checkpoint_filepath,
+            monitor='val_loss',
+            mode='max',
+            save_best_only=True)
 
-    history = model.fit(
-        X_train, y_train,
-        validation_data=(X_valid, y_valid),
-        batch_size=50,
-        epochs=2000,
-        callbacks=[model_checkpoint_callback]
-    )
+        history = model.fit(
+            x_train, y_train,
+            validation_data=(x_valid, y_valid),
+            batch_size=50,
+            epochs=2000,
+            callbacks=[model_checkpoint_callback]
+        )
 
-    model.save('house_prices.h5')
+        model.save('house_prices.h5')
 
-    # Show the learning curves
-    history_df = pd.DataFrame(history.history)
-    history_df.loc[:, ['loss', 'val_loss']].plot()
+        # Show the learning curves
+        history_df = pd.DataFrame(history.history)
+        history_df.loc[:, ['loss', 'val_loss']].plot()
 
 
-    preds = model.predict(X_valid)[:,0]
-    # plt.show()
+        preds = model.predict(x_valid)[:,0]
+        # plt.show()
 
-    print('MAX error:', max_error(y_valid, preds))
-    print('Min error:', max(y_valid - preds))
-    print('Median Absolutel error:', median_absolute_error(y_valid, preds))
-    print('MAE:', mean_absolute_error(y_valid, preds))
-    print('MRSLE:', np.sqrt(mean_squared_log_error(y_valid, preds)))
+        print('MAX error:', max_error(y_valid, preds))
+        print('Min error:', max(y_valid - preds))
+        print('Median Absolutel error:', median_absolute_error(y_valid, preds))
+        print('MAE:', mean_absolute_error(y_valid, preds))
+        print('MRSLE:', np.sqrt(mean_squared_log_error(y_valid, preds)))
 
-    # sns.displot(y_valid - preds)
-    # plt.show()
+        # sns.displot(y_valid - preds)
+        # plt.show()
+        return model
 
-if 0:
-    preds_test = model.predict(X_test)
-    # Save test predictions to file
-    output = pd.DataFrame({'Id': X_test.index,
-                           'SalePrice': preds_test})
-    output.to_csv('submission.csv', index=False)
+    def test(self, model):
+            preds_test = model.predict(self.x_test)
+            # Save test predictions to file
+            output = pd.DataFrame({'Id': self.x_test.index,
+                                   'SalePrice': preds_test})
+            output.to_csv('submission.csv', index=False)
 
+
+if __name__ == '__main__':
+    pl = HousePricesPipeline()
+    pl.load_data()
+    pl.pre_process_data()
+    pl.train_eval()
