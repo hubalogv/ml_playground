@@ -102,7 +102,7 @@ def build_model(input_dim):
 def build_model_2(input_dim):
     model = Sequential()
     model.add(layers.Dense(400, input_dim=input_dim))
-    # model.add(layers.Dropout(0.3))
+    model.add(layers.Dropout(0.3))
     # model.add(layers.BatchNormalization())
     model.add(layers.Activation('relu'))
     # model.add(layers.Dense(400, activation='relu'))
