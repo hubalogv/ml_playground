@@ -1,8 +1,5 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import layers, callbacks, regularizers, optimizers
 import seaborn as sns
@@ -36,24 +33,46 @@ class HousePricesPipeline(object):
         self.x_test = test_data
 
     def pre_process_data(self):
-        self.x['MSSubClass'] = self.x['MSSubClass'].apply(str)
-        self.x['YearBuilt'] = 2011 - self.x['YearBuilt']
         # data.SalePrice = np.log1p(data.SalePrice)
         # data['YrSold'] = data['YrSold'].apply(str)
         # data['MoSold'] = data['MoSold'].apply(str)
         # data.drop(['YrSold'], axis=1)
+
+        x_length = self.x.shape[0]
+
+        all_data = self.x.append(self.x_test)  # type: pd.DataFrame
+        all_data['MSSubClass'] = all_data['MSSubClass'].apply(str)
+        all_data['MoSold'] = all_data['MoSold'].apply(str)
+        all_data['YearBuilt'] = 2011 - all_data['YearBuilt']
+
+
+        # garage items are fine, default fillers should work fine
+
+        fill_avg_num_cols = []
+        fill_zero_num_cols = ['Frontage', 'MasVnrArea',
+                              'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'BsmtHalfBath', 'BsmtFullBath',
+                              ]
+
+        fill_na_str_cols = ['MasVnrType']
+        fill_avg_str_cols = ['Electrical', 'KitchenQual', 'Exterior1st', 'Exterior2nd', 'SaleType',
+                             'MSZoning', 'Utilities', 'Functional',
+                             'BsmtFinType1', 'BsmtFinType2']
+
+        all_data['GarageCars'] = all_data['GarageCars'].fillna(1)
+
+        for col in fill_avg_str_cols:
+            all_data[col] = all_data[col].fillna(self.x[col].value_counts().idxmax())
+
 
         numeric_cols = [cname for cname in self.x.columns if self.x[cname].dtype in ['int64', 'float64']]
         categoric_cols = [cname for cname in self.x.columns if self.x[cname].dtype in ['object']]
         all_cols = numeric_cols + categoric_cols
 
         for col in numeric_cols:
-            self.x[col] = self.x[col].fillna(0)
-            self.x_test[col] = self.x_test[col].fillna(0)
+            all_data[col] = all_data[col].fillna(0)
 
         for col in categoric_cols:
-            self.x[col] = self.x[col].fillna('None')
-            self.x_test[col] = self.x_test[col].fillna('None')
+            all_data[col] = all_data[col].fillna('None')
 
         # print(X.isnull().values.any())
         # print(X_test.isnull().values.any())
@@ -64,15 +83,16 @@ class HousePricesPipeline(object):
         #     X[col] = label_encoder.fit_transform(X[col])
         #     X_test[col] = label_encoder.transform(X_test[col])
 
-        self.x_test = pd.get_dummies(self.x_test, drop_first=True)
-        self.x = pd.get_dummies(self.x, drop_first=True)
+        all_data = pd.get_dummies(all_data, drop_first=True)
 
-        self.x, self.x_test = self.x.align(self.x_test, join='left', axis=1)
+        self.x = all_data.iloc[:x_length]
+        self.x_test = all_data.iloc[x_length:]
 
-        self.x_test = self.x_test.fillna(0)
-
-        print(self.x.isna().values.any())
-        print(self.x_test.isna().values.any())
+        if 0:
+            print (self.x.shape[0])
+            print (self.x_test.shape[0])
+            print(self.x.isna().values.any())
+            print(self.x_test.isna().values.any())
 
     def build_model(self, model_id=None):
         input_dim = self.x.shape[1]
@@ -126,6 +146,7 @@ class HousePricesPipeline(object):
         #                                                       test_size=0.2,
         #                                                       random_state=random_seed)
 
+        is_validated = isinstance(x_valid, pd.DataFrame)
 
         model = self.build_model('flat')
 
@@ -138,7 +159,7 @@ class HousePricesPipeline(object):
 
         history = model.fit(
             x_train, y_train,
-            validation_data=(x_valid, y_valid) if x_valid else None,
+            validation_data=(x_valid, y_valid) if is_validated else None,
             batch_size=50,
             epochs=2000,
             verbose=0,
@@ -149,15 +170,16 @@ class HousePricesPipeline(object):
 
         # Show the learning curves
         history_df = pd.DataFrame(history.history)
-        if x_valid:
+        if is_validated:
             history_df.loc[:, ['loss', 'val_loss']].plot()
         else:
             history_df.loc[:, ['loss']].plot()
-            print('loss: ', history_df.loc[-1:, ['loss']])
+            # print('loss: ', history_df.loc[:, ['loss']])
 
-        if x_valid:
+        if is_validated:
 
             preds = model.predict(x_valid)[:,0]
+            # print(preds)
             # plt.show()
 
             results = {}
@@ -167,10 +189,12 @@ class HousePricesPipeline(object):
             results['MAE']= mean_absolute_error(y_valid, preds)
             results['MRSLE'] = np.sqrt(mean_squared_log_error(y_valid, preds))
             print(results)
+        else:
+            results = {}
 
         # sns.displot(y_valid - preds)
         # plt.show()
-        return model
+        return model, results
 
     def test(self, model):
             preds_test = model.predict(self.x_test)[:,0]
@@ -205,8 +229,8 @@ if __name__ == '__main__':
                                                           random_state=random_seed)
         pl.train_eval(x_train, x_valid, y_train, y_valid)
 
-    if 0:
+    if 1:
         pl.cross_validation()
-    if 0:
-        model = pl.train_eval(pl.x, None, pl.y, None)
+    if 1:
+        model = pl.train_eval(pl.x, None, pl.y, None)[0]
         pl.test(model)
