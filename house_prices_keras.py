@@ -8,6 +8,7 @@ from tensorflow.keras import layers, callbacks, regularizers, optimizers
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
+from sklearn.model_selection import KFold
 
 random_seed = 2
 from numpy.random import seed
@@ -117,15 +118,14 @@ class HousePricesPipeline(object):
         else:
             raise ValueError('unknown model id')
 
-    def train_eval(self):
-        x_train, x_valid, y_train, y_valid = train_test_split(self.x, self.y,
-                                                              train_size=0.8,
-                                                              test_size=0.2,
-                                                              random_state=random_seed)
+    def train_eval(self, x_train, x_valid, y_train, y_valid):
+        # x_train, x_valid, y_train, y_valid = train_test_split(self.x, self.y,
+        #                                                       train_size=0.8,
+        #                                                       test_size=0.2,
+        #                                                       random_state=random_seed)
 
 
         model = self.build_model('flat')
-        # model = linear(X_train.shape[1])
 
         checkpoint_filepath = 'hp_{val_loss:.4f}.h5'
         model_checkpoint_callback = callbacks.ModelCheckpoint(
@@ -139,6 +139,7 @@ class HousePricesPipeline(object):
             validation_data=(x_valid, y_valid),
             batch_size=50,
             epochs=2000,
+            verbose=0,
             callbacks=[model_checkpoint_callback]
         )
 
@@ -152,15 +153,17 @@ class HousePricesPipeline(object):
         preds = model.predict(x_valid)[:,0]
         # plt.show()
 
-        print('MAX error:', max_error(y_valid, preds))
-        print('Min error:', max(y_valid - preds))
-        print('Median Absolutel error:', median_absolute_error(y_valid, preds))
-        print('MAE:', mean_absolute_error(y_valid, preds))
-        print('MRSLE:', np.sqrt(mean_squared_log_error(y_valid, preds)))
+        results = {}
+        results['MAX error'] = max_error(y_valid, preds)
+        results['Min error:'] = max(y_valid - preds)
+        results['Median Absolutel error'] = median_absolute_error(y_valid, preds)
+        results['MAE']= mean_absolute_error(y_valid, preds)
+        results['MRSLE'] = np.sqrt(mean_squared_log_error(y_valid, preds))
+        print(results)
 
         # sns.displot(y_valid - preds)
         # plt.show()
-        return model
+        return model, results
 
     def test(self, model):
             preds_test = model.predict(self.x_test)
@@ -169,9 +172,30 @@ class HousePricesPipeline(object):
                                    'SalePrice': preds_test})
             output.to_csv('submission.csv', index=False)
 
+    def cross_validation(self):
+        n_folds = 5
+        skf = KFold(n_splits=n_folds)
+        # skf.get_n_splits(self.x, self.y)
+        metrics = []
+        for train_index, test_index in skf.split(self.x, self.y):
+            x_train, x_valid = self.x.iloc[train_index], self.x.iloc[test_index]
+            y_train, y_valid = self.y.iloc[train_index], self.y.iloc[test_index]
+            metrics.append(self.train_eval(x_train, x_valid, y_train, y_valid)[1])
+
+        df = pd.DataFrame(metrics)
+        print('Agv MRLSE: ', df['MRSLE'].mean())
+        return metrics
+
 
 if __name__ == '__main__':
     pl = HousePricesPipeline()
     pl.load_data()
     pl.pre_process_data()
-    pl.train_eval()
+    if 1:
+        x_train, x_valid, y_train, y_valid = train_test_split(pl.x, pl.y,
+                                                          train_size=0.8,
+                                                          test_size=0.2,
+                                                          random_state=random_seed)
+        pl.train_eval(x_train, x_valid, y_train, y_valid)
+
+    pl.cross_validation()
