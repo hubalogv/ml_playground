@@ -52,7 +52,6 @@ class HousePricesPipeline(object):
             self.x_test[col] = self.x_test[col].fillna(0)
 
         for col in categoric_cols:
-
             self.x[col] = self.x[col].fillna('None')
             self.x_test[col] = self.x_test[col].fillna('None')
 
@@ -70,7 +69,10 @@ class HousePricesPipeline(object):
 
         self.x, self.x_test = self.x.align(self.x_test, join='left', axis=1)
 
-        print(self.x_test.isnull().values.any())
+        self.x_test = self.x_test.fillna(0)
+
+        print(self.x.isna().values.any())
+        print(self.x_test.isna().values.any())
 
     def build_model(self, model_id=None):
         input_dim = self.x.shape[1]
@@ -127,16 +129,16 @@ class HousePricesPipeline(object):
 
         model = self.build_model('flat')
 
-        checkpoint_filepath = 'hp_{val_loss:.4f}.h5'
+        checkpoint_filepath = 'hp_{loss:.4f}.h5'
         model_checkpoint_callback = callbacks.ModelCheckpoint(
             filepath=checkpoint_filepath,
-            monitor='val_loss',
+            monitor='loss',
             mode='max',
             save_best_only=True)
 
         history = model.fit(
             x_train, y_train,
-            validation_data=(x_valid, y_valid),
+            validation_data=(x_valid, y_valid) if x_valid else None,
             batch_size=50,
             epochs=2000,
             verbose=0,
@@ -147,26 +149,31 @@ class HousePricesPipeline(object):
 
         # Show the learning curves
         history_df = pd.DataFrame(history.history)
-        history_df.loc[:, ['loss', 'val_loss']].plot()
+        if x_valid:
+            history_df.loc[:, ['loss', 'val_loss']].plot()
+        else:
+            history_df.loc[:, ['loss']].plot()
+            print('loss: ', history_df.loc[-1:, ['loss']])
 
+        if x_valid:
 
-        preds = model.predict(x_valid)[:,0]
-        # plt.show()
+            preds = model.predict(x_valid)[:,0]
+            # plt.show()
 
-        results = {}
-        results['MAX error'] = max_error(y_valid, preds)
-        results['Min error:'] = max(y_valid - preds)
-        results['Median Absolutel error'] = median_absolute_error(y_valid, preds)
-        results['MAE']= mean_absolute_error(y_valid, preds)
-        results['MRSLE'] = np.sqrt(mean_squared_log_error(y_valid, preds))
-        print(results)
+            results = {}
+            results['MAX error'] = max_error(y_valid, preds)
+            results['Min error:'] = max(y_valid - preds)
+            results['Median Absolutel error'] = median_absolute_error(y_valid, preds)
+            results['MAE']= mean_absolute_error(y_valid, preds)
+            results['MRSLE'] = np.sqrt(mean_squared_log_error(y_valid, preds))
+            print(results)
 
         # sns.displot(y_valid - preds)
         # plt.show()
-        return model, results
+        return model
 
     def test(self, model):
-            preds_test = model.predict(self.x_test)
+            preds_test = model.predict(self.x_test)[:,0]
             # Save test predictions to file
             output = pd.DataFrame({'Id': self.x_test.index,
                                    'SalePrice': preds_test})
@@ -191,11 +198,15 @@ if __name__ == '__main__':
     pl = HousePricesPipeline()
     pl.load_data()
     pl.pre_process_data()
-    if 1:
+    if 0:
         x_train, x_valid, y_train, y_valid = train_test_split(pl.x, pl.y,
                                                           train_size=0.8,
                                                           test_size=0.2,
                                                           random_state=random_seed)
         pl.train_eval(x_train, x_valid, y_train, y_valid)
 
-    pl.cross_validation()
+    if 0:
+        pl.cross_validation()
+    if 0:
+        model = pl.train_eval(pl.x, None, pl.y, None)
+        pl.test(model)
