@@ -2,16 +2,32 @@ import pandas as pd
 import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import layers, callbacks, regularizers, optimizers
+from tensorflow.keras import backend as K
+import tensorflow as tf
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 random_seed = 2
 from numpy.random import seed
 seed(random_seed)
 from tensorflow.random import set_seed
 set_seed(random_seed)
+
+class CustomCallback(callbacks.Callback):
+
+
+    def on_epoch_begin(self, epoch, logs=None):
+        keys = list(logs.keys())
+        # print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
+
+    def on_epoch_end(self, epoch, logs={}):
+        current_decayed_lr = self.model.optimizer._decayed_lr(tf.float32).numpy()
+        print("current decayed lr: {:0.7f}".format(current_decayed_lr))
+
+
 
 class HousePricesPipeline(object):
 
@@ -89,6 +105,11 @@ class HousePricesPipeline(object):
         self.x_test = all_data.iloc[x_length:]
 
         if 0:
+            scaler = MinMaxScaler()
+            self.x[self.x.columns] = scaler.fit_transform(self.x[self.x.columns])
+            self.x_test[self.x.columns] = scaler.transform(self.x_test[self.x_test.columns])
+
+        if 0:
             print (self.x.shape[0])
             print (self.x_test.shape[0])
             print(self.x.isna().values.any())
@@ -125,8 +146,8 @@ class HousePricesPipeline(object):
             model.add(layers.Dense(1, kernel_initializer='normal'))
             # Compile model
             lr_schedule = optimizers.schedules.ExponentialDecay(
-                initial_learning_rate=0.01,
-                decay_steps=10000,
+                initial_learning_rate=0.1,
+                decay_steps=2000,
                 decay_rate=0.8)
             model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=["mean_squared_logarithmic_error"])
             return model
@@ -163,7 +184,7 @@ class HousePricesPipeline(object):
             batch_size=50,
             epochs=2000,
             verbose=0,
-            callbacks=[model_checkpoint_callback]
+            callbacks=[model_checkpoint_callback, CustomCallback()]
         )
 
         model.save('house_prices.h5')
@@ -172,8 +193,10 @@ class HousePricesPipeline(object):
         history_df = pd.DataFrame(history.history)
         if is_validated:
             history_df.loc[:, ['loss', 'val_loss']].plot()
+            # plt.show()
         else:
             history_df.loc[:, ['loss']].plot()
+            # plt.show()
             # print('loss: ', history_df.loc[:, ['loss']])
 
         if is_validated:
@@ -231,6 +254,6 @@ if __name__ == '__main__':
 
     if 1:
         pl.cross_validation()
-    if 1:
+    if 0:
         model = pl.train_eval(pl.x, None, pl.y, None)[0]
         pl.test(model)
