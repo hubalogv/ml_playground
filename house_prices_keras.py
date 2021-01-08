@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from tensorflow.keras.models import Sequential
-from tensorflow.keras import layers, callbacks, regularizers, optimizers
+from tensorflow.keras import layers, callbacks, regularizers, optimizers, losses
 from tensorflow.keras import backend as K
 import tensorflow as tf
 import seaborn as sns
@@ -23,11 +23,18 @@ class CustomCallback(callbacks.Callback):
         keys = list(logs.keys())
         # print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
 
-    def on_epoch_end(self, epoch, logs={}):
+    def on_epoch_end(self, epoch, logs=None):
         current_decayed_lr = self.model.optimizer._decayed_lr(tf.float32).numpy()
-        print("current decayed lr: {:0.7f}".format(current_decayed_lr))
+        if divmod(epoch, 100)[1] == 0:
+            print("epoch: {}, loss: {:0.7f}, val_loss: {:0.7f}, lr: {:0.7f}".format(epoch,
+                                                                          logs['loss'],
+                                                                          logs['val_loss'] if 'val_loss' in logs.keys() else 0,
+                                                                          current_decayed_lr))
+def rmsle(y_true, y_pred):
+  return tf.math.sqrt(tf.reduce_mean(losses.mean_squared_logarithmic_error(y_true, y_pred)))
 
-
+# def rmsle(y_true, y_pred):
+#    return np.sqrt(mean_squared_log_error(y_true, y_pred))
 
 class HousePricesPipeline(object):
 
@@ -146,17 +153,17 @@ class HousePricesPipeline(object):
             model.add(layers.Dense(1, kernel_initializer='normal'))
             # Compile model
             lr_schedule = optimizers.schedules.ExponentialDecay(
-                initial_learning_rate=0.1,
-                decay_steps=2000,
+                initial_learning_rate=0.01,
+                decay_steps=10000,
                 decay_rate=0.8)
-            model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=["mean_squared_logarithmic_error"])
+            model.compile(loss=rmsle, optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=["mae"])
             return model
 
         elif model_id == 'lin':
             model = Sequential()
             model.add(layers.Dense(1, input_dim=input_dim))
             # Compile model
-            model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
+            model.compile(loss=rmsle, optimizer='adam',  metrics=["mae"])
             return model
         else:
             raise ValueError('unknown model id')
@@ -181,7 +188,7 @@ class HousePricesPipeline(object):
         history = model.fit(
             x_train, y_train,
             validation_data=(x_valid, y_valid) if is_validated else None,
-            batch_size=50,
+            batch_size=200,
             epochs=2000,
             verbose=0,
             callbacks=[model_checkpoint_callback, CustomCallback()]
@@ -210,7 +217,7 @@ class HousePricesPipeline(object):
             results['Min error:'] = max(y_valid - preds)
             results['Median Absolutel error'] = median_absolute_error(y_valid, preds)
             results['MAE']= mean_absolute_error(y_valid, preds)
-            results['MRSLE'] = np.sqrt(mean_squared_log_error(y_valid, preds))
+            results['RMSLE'] = np.sqrt(mean_squared_log_error(y_valid, preds))
             print(results)
         else:
             results = {}
@@ -237,7 +244,7 @@ class HousePricesPipeline(object):
             metrics.append(self.train_eval(x_train, x_valid, y_train, y_valid)[1])
 
         df = pd.DataFrame(metrics)
-        print('Agv MRLSE: ', df['MRSLE'].mean())
+        print('Agv RMLSE: ', df['RMSLE'].mean())
         return metrics
 
 
@@ -254,6 +261,6 @@ if __name__ == '__main__':
 
     if 1:
         pl.cross_validation()
-    if 0:
+    if 1:
         model = pl.train_eval(pl.x, None, pl.y, None)[0]
         pl.test(model)
