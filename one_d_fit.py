@@ -9,10 +9,11 @@ seed(random_seed)
 
 
 X = np.random.rand(1000)
-# y = np.sin(X * 10)
-y = 4 * X + 3
+y = np.sin(X * 10)
+y = np.power(X, 3) + 1
+# y = 4 * X + 3
 
-# sns.scatterplot(X, y)
+# sns.scatterplot(x=X, y=y)
 # plt.show()
 
 if 1:
@@ -21,14 +22,16 @@ if 1:
 
     def linear(input_dim):
         model = Sequential()
-        model.add(layers.Dense(1, input_dim=input_dim))
+        model.add(layers.Dense(2, input_dim=input_dim))
+        model.add(layers.Activation('tanh'))
+        model.add(layers.Dense(1))
         # Compile model
-        model.compile(loss='mae', optimizer='adam')
+        model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=0.01))
         return model
 
     from sklearn.model_selection import train_test_split
     from tensorflow.keras.models import Sequential
-    from tensorflow.keras import layers, callbacks
+    from tensorflow.keras import layers, callbacks, optimizers
     from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
 
 
@@ -44,25 +47,44 @@ if 1:
     history = model.fit(
         X_train, y_train,
         validation_data=(X_valid, y_valid),
-        batch_size=50,
-        epochs=1000,
+        batch_size=100,
+        epochs=50
     )
-
-    # Show the learning curves
-    history_df = pd.DataFrame(history.history)
-    history_df.loc[:, ['loss', 'val_loss']].plot()
-
     print (model.layers[0].get_weights())
+    print (model.layers[2].get_weights())
+    weights0 = model.layers[0].get_weights()
+    weights2 = model.layers[2].get_weights()
+    w_array = weights0[0]
+    b_array = weights0[1]
 
-    preds = model.predict(X_valid)[:,0]
+    for i in range(len(w_array[0])):
+        w = w_array[0][i]
+        b = b_array[i]
+        data = X * w + b
+        sns.scatterplot(x=X, y=data)
+        sns.scatterplot(x=X, y=np.tanh(data)*weights2[0][i][0])
+
     # plt.show()
 
-    print('MAX error:', max_error(y_valid, preds))
-    print('Min error:', max(y_valid - preds))
-    print('Median Absolutel error:', median_absolute_error(y_valid, preds))
-    print('MAE:', mean_absolute_error(y_valid, preds))
+    if 0:
+        # Show the learning curves
+        history_df = pd.DataFrame(history.history)
+        history_df.loc[:, ['loss', 'val_loss']].plot()
+        plt.show()
 
-    # sns.displot(y_valid - preds)
-    # plt.show()
+    plt.show()
+    if 1:
+        preds = model.predict(X_valid)[:,0]
+        sns.scatterplot(x=X, y=y)
+        sns.scatterplot(x=X_valid, y=preds)
+
+        print('MAX error:', max_error(y_valid, preds))
+        print('Min error:', max(y_valid - preds))
+        print('Median Absolutel error:', median_absolute_error(y_valid, preds))
+        print('MAE:', mean_absolute_error(y_valid, preds))
+
+        # sns.displot(y_valid - preds)
+
+    plt.show()
 
 
