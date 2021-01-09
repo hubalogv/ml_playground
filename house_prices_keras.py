@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import datetime
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import layers, callbacks, regularizers, optimizers, losses
 from tensorflow.keras import backend as K
@@ -8,7 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
 from sklearn.model_selection import KFold, train_test_split
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 random_seed = 2
 from numpy.random import seed
@@ -111,8 +112,8 @@ class HousePricesPipeline(object):
         self.x = all_data.iloc[:x_length]
         self.x_test = all_data.iloc[x_length:]
 
-        if 0:
-            scaler = MinMaxScaler()
+        if 1:
+            scaler = StandardScaler()
             self.x[self.x.columns] = scaler.fit_transform(self.x[self.x.columns])
             self.x_test[self.x.columns] = scaler.transform(self.x_test[self.x_test.columns])
 
@@ -153,10 +154,10 @@ class HousePricesPipeline(object):
             model.add(layers.Dense(1, kernel_initializer='normal'))
             # Compile model
             lr_schedule = optimizers.schedules.ExponentialDecay(
-                initial_learning_rate=0.01,
-                decay_steps=10000,
-                decay_rate=0.8)
-            model.compile(loss=rmsle, optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=["mae"])
+                initial_learning_rate=0.05,
+                decay_steps=500,
+                decay_rate=0.99)
+            model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=[rmsle])
             return model
 
         elif model_id == 'lin':
@@ -185,13 +186,16 @@ class HousePricesPipeline(object):
             mode='max',
             save_best_only=True)
 
+        log_dir = r'C:\_ws\ML\logs\fit' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
         history = model.fit(
             x_train, y_train,
             validation_data=(x_valid, y_valid) if is_validated else None,
             batch_size=200,
-            epochs=2000,
+            epochs=501,
             verbose=0,
-            callbacks=[model_checkpoint_callback, CustomCallback()]
+            callbacks=[model_checkpoint_callback, tensorboard_callback, CustomCallback()]
         )
 
         model.save('house_prices.h5')
