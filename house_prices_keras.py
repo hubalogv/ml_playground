@@ -66,7 +66,7 @@ class HousePricesPipeline(object):
 
         all_data = self.x.append(self.x_test)  # type: pd.DataFrame
         all_data['MSSubClass'] = all_data['MSSubClass'].apply(str)
-        all_data['MoSold'] = all_data['MoSold'].apply(str)
+        # all_data['MoSold'] = all_data['MoSold'].apply(str)
         all_data['YearBuilt'] = 2011 - all_data['YearBuilt']
 
 
@@ -112,7 +112,7 @@ class HousePricesPipeline(object):
         self.x = all_data.iloc[:x_length]
         self.x_test = all_data.iloc[x_length:]
 
-        if 1:
+        if 0:
             scaler = StandardScaler()
             self.x[self.x.columns] = scaler.fit_transform(self.x[self.x.columns])
             self.x_test[self.x.columns] = scaler.transform(self.x_test[self.x_test.columns])
@@ -154,9 +154,9 @@ class HousePricesPipeline(object):
             model.add(layers.Dense(1, kernel_initializer='normal'))
             # Compile model
             lr_schedule = optimizers.schedules.ExponentialDecay(
-                initial_learning_rate=0.05,
-                decay_steps=500,
-                decay_rate=0.99)
+                initial_learning_rate=0.1,
+                decay_steps=10000,
+                decay_rate=0.8)
             model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=[rmsle])
             return model
 
@@ -186,16 +186,22 @@ class HousePricesPipeline(object):
             mode='max',
             save_best_only=True)
 
+        es_callback = tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss' if is_validated else 'loss',
+            patience=500,
+            min_delta=500.0,
+            restore_best_weights=True)
+
         log_dir = r'C:\_ws\ML\logs\fit' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
         history = model.fit(
             x_train, y_train,
             validation_data=(x_valid, y_valid) if is_validated else None,
-            batch_size=200,
-            epochs=501,
+            batch_size=50,
+            epochs=2001,
             verbose=0,
-            callbacks=[model_checkpoint_callback, tensorboard_callback, CustomCallback()]
+            callbacks=[tensorboard_callback, es_callback, CustomCallback()]
         )
 
         model.save('house_prices.h5')
