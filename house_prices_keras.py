@@ -68,6 +68,7 @@ class HousePricesPipeline(object):
         all_data['MSSubClass'] = all_data['MSSubClass'].apply(str)
         # all_data['MoSold'] = all_data['MoSold'].apply(str)
         all_data['YearBuilt'] = 2011 - all_data['YearBuilt']
+        # all_data['YearRemodAdd'] = 2011 - all_data['YearRemodAdd']
 
 
         # garage items are fine, default fillers should work fine
@@ -146,7 +147,10 @@ class HousePricesPipeline(object):
 
         elif model_id == 'flat':
             model = Sequential()
-            model.add(layers.Dense(400, input_dim=input_dim))
+            model.add(layers.Dense(400, input_dim=input_dim,
+                                   kernel_regularizer=regularizers.l1_l2(l1=1e-5, l2=1e-4),
+                                    bias_regularizer=regularizers.l2(1e-4),
+                                    activity_regularizer=regularizers.l2(1e-5)))
             model.add(layers.Dropout(0.3))
             # model.add(layers.BatchNormalization())
             model.add(layers.Activation('relu'))
@@ -154,7 +158,7 @@ class HousePricesPipeline(object):
             model.add(layers.Dense(1, kernel_initializer='normal'))
             # Compile model
             lr_schedule = optimizers.schedules.ExponentialDecay(
-                initial_learning_rate=0.1,
+                initial_learning_rate=0.05,
                 decay_steps=10000,
                 decay_rate=0.8)
             model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=[rmsle])
@@ -189,7 +193,7 @@ class HousePricesPipeline(object):
         es_callback = tf.keras.callbacks.EarlyStopping(
             monitor='val_loss' if is_validated else 'loss',
             patience=500,
-            min_delta=500.0,
+            min_delta=500 if is_validated else 50,
             restore_best_weights=True)
 
         log_dir = r'C:\_ws\ML\logs\fit' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -247,11 +251,20 @@ class HousePricesPipeline(object):
         n_folds = 5
         skf = KFold(n_splits=n_folds)
         # skf.get_n_splits(self.x, self.y)
+        preds = []
         metrics = []
         for train_index, test_index in skf.split(self.x, self.y):
             x_train, x_valid = self.x.iloc[train_index], self.x.iloc[test_index]
             y_train, y_valid = self.y.iloc[train_index], self.y.iloc[test_index]
-            metrics.append(self.train_eval(x_train, x_valid, y_train, y_valid)[1])
+            model, met = self.train_eval(x_train, x_valid, y_train, y_valid)
+            metrics.append(met)
+            preds.append(model.predict(self.x_test))
+
+        summed = np.average(np.array(preds), axis=0)
+        print( summed)
+        output = pd.DataFrame({'Id': self.x_test.index,
+                               'SalePrice': summed[:,0]})
+        output.to_csv('submission.csv', index=False)
 
         df = pd.DataFrame(metrics)
         print('Agv RMLSE: ', df['RMSLE'].mean())
@@ -271,6 +284,6 @@ if __name__ == '__main__':
 
     if 1:
         pl.cross_validation()
-    if 1:
+    if 0:
         model = pl.train_eval(pl.x, None, pl.y, None)[0]
         pl.test(model)
