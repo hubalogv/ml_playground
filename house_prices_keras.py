@@ -69,7 +69,19 @@ class HousePricesPipeline(object):
         # all_data['MoSold'] = all_data['MoSold'].apply(str)
         all_data['YearBuilt'] = 2011 - all_data['YearBuilt']
         # all_data['YearRemodAdd'] = 2011 - all_data['YearRemodAdd']
+        # all_data.drop(['Utilities'], axis=1, inplace=True)
+        all_data.loc[:,'GoodLivArea'] = all_data['1stFlrSF'] + all_data['2ndFlrSF']
+        all_data.drop(['1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'GrLivArea'], axis=1, inplace=True)
+        # all_data.loc[:, 'OtherPorch'] = all_data['3SsnPorch'] + all_data['ScreenPorch']
+        # all_data.drop(['3SsnPorch', 'ScreenPorch'], axis=1, inplace=True)
+        all_data = all_data.drop(['Heating', 'RoofMatl', 'Condition2', 'Street', 'Utilities'], axis=1)
 
+        # all_data['MiscFeature'] = all_data['MiscFeature'].fillna('None')
+        # for feature in all_data['MiscFeature'].unique():
+        #     all_data[feature + '_misc_area'] = all_data.apply(lambda x: x['MiscVal'] if x['MiscFeature'] == feature else 0,
+        #                                                 axis=1)
+        # all_data.drop(['MiscFeature', 'None_misc_area'], axis=1, inplace=True)
+        all_data.drop(['MiscFeature', 'MiscVal'], axis=1, inplace=True)
 
         # garage items are fine, default fillers should work fine
 
@@ -80,7 +92,7 @@ class HousePricesPipeline(object):
 
         fill_na_str_cols = ['MasVnrType']
         fill_avg_str_cols = ['Electrical', 'KitchenQual', 'Exterior1st', 'Exterior2nd', 'SaleType',
-                             'MSZoning', 'Utilities', 'Functional',
+                             'MSZoning', 'Functional',
                              'BsmtFinType1', 'BsmtFinType2']
 
         all_data['GarageCars'] = all_data['GarageCars'].fillna(1)
@@ -89,8 +101,8 @@ class HousePricesPipeline(object):
             all_data[col] = all_data[col].fillna(self.x[col].value_counts().idxmax())
 
 
-        numeric_cols = [cname for cname in self.x.columns if self.x[cname].dtype in ['int64', 'float64']]
-        categoric_cols = [cname for cname in self.x.columns if self.x[cname].dtype in ['object']]
+        numeric_cols = [cname for cname in all_data.columns if all_data[cname].dtype in ['int64', 'float64']]
+        categoric_cols = [cname for cname in all_data.columns if all_data[cname].dtype in ['object']]
         all_cols = numeric_cols + categoric_cols
 
         for col in numeric_cols:
