@@ -56,15 +56,22 @@ class HousePricesPipeline(object):
         self.x = train_data
         self.x_test = test_data
 
+    def data_fit_transform(self, data):
+        return data
+
+    def data_transform(self, data):
+        return data
+
     def pre_process_data(self):
         # data.SalePrice = np.log1p(data.SalePrice)
         # data['YrSold'] = data['YrSold'].apply(str)
         # data['MoSold'] = data['MoSold'].apply(str)
         # data.drop(['YrSold'], axis=1)
 
+        qual_map = {'Ex': 5, 'Gd': 4, 'TA': 3, 'Fa': 2, 'Po': 1, 'None': 0}
         x_length = self.x.shape[0]
-
         all_data = self.x.append(self.x_test)  # type: pd.DataFrame
+        # all_data['KitchenQual'] = all_data['KitchenQual'].map(lambda x: qual_map[x])
         all_data['MSSubClass'] = all_data['MSSubClass'].apply(str)
         # all_data['MoSold'] = all_data['MoSold'].apply(str)
         all_data['YearBuilt'] = 2011 - all_data['YearBuilt']
@@ -75,6 +82,15 @@ class HousePricesPipeline(object):
         # all_data.loc[:, 'OtherPorch'] = all_data['3SsnPorch'] + all_data['ScreenPorch']
         # all_data.drop(['3SsnPorch', 'ScreenPorch'], axis=1, inplace=True)
         all_data = all_data.drop(['Heating', 'RoofMatl', 'Condition2', 'Street', 'Utilities'], axis=1)
+        all_data.loc[:, 'NonBedrooms'] = all_data['TotRmsAbvGrd'] - all_data['BedroomAbvGr']
+
+        # all_data.loc[:, 'QuarterSold'] = all_data['YrSold'].astype(str) + 'Q' + (
+        #     (all_data['MoSold'] / 3).apply(np.floor)).astype(str)
+        # all_data = all_data.drop(['YrSold', 'MoSold'], axis=1)
+
+        # all_data['Functional'] = all_data['Functional'].fillna('Typ')
+        # func_map = {'Typ': 'Typ', 'Min1': 'Min1', 'Min2': 'Min2', 'Mod': 'Mod', 'Maj1': 'Maj', 'Maj2': 'Maj', 'Sev': 'Maj'}
+        # all_data['Functional'] = all_data['Functional'].map(lambda x: func_map[x])
 
         # all_data['MiscFeature'] = all_data['MiscFeature'].fillna('None')
         # for feature in all_data['MiscFeature'].unique():
@@ -85,6 +101,7 @@ class HousePricesPipeline(object):
 
         # garage items are fine, default fillers should work fine
 
+        all_data['KitchenQual'] = all_data['KitchenQual'].fillna('TA')
         fill_avg_num_cols = []
         fill_zero_num_cols = ['Frontage', 'MasVnrArea',
                               'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'BsmtHalfBath', 'BsmtFullBath',
@@ -178,9 +195,12 @@ class HousePricesPipeline(object):
 
         elif model_id == 'lin':
             model = Sequential()
-            model.add(layers.Dense(1, input_dim=input_dim))
+            model.add(layers.Dense(1, input_dim=input_dim,
+                                   kernel_regularizer=regularizers.l1_l2(l1=1e-5, l2=1e-4),
+                                   bias_regularizer=regularizers.l2(1e-4),
+                                   activity_regularizer=regularizers.l2(1e-5)))
             # Compile model
-            model.compile(loss=rmsle, optimizer='adam',  metrics=["mae"])
+            model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
             return model
         else:
             raise ValueError('unknown model id')
@@ -190,8 +210,12 @@ class HousePricesPipeline(object):
         #                                                       train_size=0.8,
         #                                                       test_size=0.2,
         #                                                       random_state=random_seed)
-
         is_validated = isinstance(x_valid, pd.DataFrame)
+
+        x_train = self.data_fit_transform(x_train)
+        if is_validated:
+            x_valid = self.data_transform(x_valid)
+
 
         model = self.build_model('flat')
 
@@ -273,7 +297,6 @@ class HousePricesPipeline(object):
             preds.append(model.predict(self.x_test))
 
         summed = np.average(np.array(preds), axis=0)
-        print( summed)
         output = pd.DataFrame({'Id': self.x_test.index,
                                'SalePrice': summed[:,0]})
         output.to_csv('submission.csv', index=False)
