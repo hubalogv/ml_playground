@@ -191,7 +191,7 @@ class HousePricesPipeline(object):
             lr_schedule = optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=0.05,
                 decay_steps=10000,
-                decay_rate=0.8)
+                decay_rate=0.7)
             model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=lr_schedule),  metrics=[rmsle])
             return model
 
@@ -231,7 +231,7 @@ class HousePricesPipeline(object):
         es_callback = tf.keras.callbacks.EarlyStopping(
             monitor='val_loss' if is_validated else 'loss',
             patience=500,
-            min_delta=200 if is_validated else 50,
+            min_delta=100 if is_validated else 50,
             restore_best_weights=True)
 
         log_dir = r'C:\_ws\ML\logs\fit' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
