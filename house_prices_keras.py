@@ -27,10 +27,11 @@ class CustomCallback(callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         current_decayed_lr = self.model.optimizer._decayed_lr(tf.float32).numpy()
         if divmod(epoch, 100)[1] == 0:
-            print("epoch: {}, loss: {:0.7f}, val_loss: {:0.7f}, lr: {:0.7f}".format(epoch,
+            print("epoch: {}, loss: {:0.5f}, val_loss: {:0.5f}, lr: {:0.5f}, RMSLE: {:0.5f}".format(epoch,
                                                                           logs['loss'],
                                                                           logs['val_loss'] if 'val_loss' in logs.keys() else 0,
-                                                                          current_decayed_lr))
+                                                                          current_decayed_lr,
+                                                                          logs['val_rmsle']))
 def rmsle(y_true, y_pred):
   return tf.math.sqrt(tf.reduce_mean(losses.mean_squared_logarithmic_error(y_true, y_pred)))
 
@@ -179,8 +180,9 @@ class HousePricesPipeline(object):
             model.add(layers.Dense(50, name='active_dense',
                                    input_dim=input_dim,
                                    kernel_regularizer=regularizers.l1_l2(l1=1e-5, l2=1e-4),
-                                    bias_regularizer=regularizers.l2(1e-4),
-                                    activity_regularizer=regularizers.l2(1e-5)))
+                                   bias_regularizer=regularizers.l2(1e-4),
+                                   activity_regularizer=regularizers.l2(1e-5))
+                      )
             model.add(layers.Dropout(0.3))
             # model.add(layers.BatchNormalization())
             model.add(layers.Activation('relu'))
@@ -276,6 +278,26 @@ class HousePricesPipeline(object):
         else:
             results = {}
 
+        if 0:
+            import eli5
+            from tensorflow.keras.wrappers.scikit_learn import KerasRegressor
+            from functools import partial
+
+            def constr(model):
+                return model
+            mod_wrapper = KerasRegressor(partial(constr, model))
+            perm = eli5.sklearn.PermutationImportance(model,
+                                                      random_state=random_seed,
+                                                      scoring='neg_mean_squared_log_error',
+                                                      ).fit(x_valid, y_valid)
+            df = pd.DataFrame()
+            df['feature'] = x_valid.columns
+            df['importances'] = perm.feature_importances_
+            df['importances_std'] = perm.feature_importances_std_
+            df.sort_values(by='importances')
+            df.reset_index()
+            df.to_csv('imp.csv')
+
         # sns.displot(y_valid - preds)
         # plt.show()
         return model, results
@@ -314,14 +336,14 @@ if __name__ == '__main__':
     pl = HousePricesPipeline()
     pl.load_data()
     pl.pre_process_data()
-    if 0:
+    if 1:
         x_train, x_valid, y_train, y_valid = train_test_split(pl.x, pl.y,
                                                           train_size=0.8,
                                                           test_size=0.2,
                                                           random_state=random_seed)
         pl.train_eval(x_train, x_valid, y_train, y_valid)
 
-    if 1:
+    if 0:
         pl.cross_validation()
     if 0:
         model = pl.train_eval(pl.x, None, pl.y, None)[0]
