@@ -85,6 +85,7 @@ class HousePricesPipeline(object):
         all_data = all_data.drop(['Heating', 'RoofMatl', 'Condition2', 'Street', 'Utilities'], axis=1)
         all_data.loc[:, 'NonBedrooms'] = all_data['TotRmsAbvGrd'] - all_data['BedroomAbvGr']
 
+        # permutation analysis transforms start here:
         all_data['SaleType_New'] = all_data['SaleType'].isin(['New']).astype(int)
         all_data.drop(['SaleType'], axis=1, inplace=True)
 
@@ -101,6 +102,27 @@ class HousePricesPipeline(object):
 
         all_data['HeatingQC_Gd'] = all_data['HeatingQC'].isin(['Gd']).astype(int)
         all_data.drop(['HeatingQC'], axis=1, inplace=True)
+
+        all_data['BsmtFinType1_GLQ_BLQ'] = all_data['BsmtFinType1'].isin(['GLQ', 'BLQ']).astype(int)
+        all_data.drop(['BsmtFinType1'], axis=1, inplace=True)
+        all_data.drop(['BsmtFinType2'], axis=1, inplace=True)
+
+        all_data['BsmtExposure_Gd'] = all_data['BsmtExposure'].isin(['Gd']).astype(int)
+        all_data.drop(['BsmtExposure'], axis=1, inplace=True)
+        all_data.drop(['BsmtCond'], axis=1, inplace=True)
+
+        all_data['BsmtQual_Gd'] = all_data['BsmtQual'].isin(['Gd']).astype(int)
+        all_data['BsmtQual_TA'] = all_data['BsmtQual'].isin(['TA']).astype(int)
+        all_data.drop(['BsmtQual'], axis=1, inplace=True)
+
+        all_data.drop(['Foundation'], axis=1, inplace=True)
+        if 0:
+            all_data.drop(['ExterCond'], axis=1, inplace=True)
+            all_data['ExterQual_Gd'] = all_data['ExterQual'].isin(['Gd']).astype(int)
+            all_data['ExterQual_TA'] = all_data['ExterQual'].isin(['TA']).astype(int)
+            all_data.drop(['ExterQual'], axis=1, inplace=True)
+
+            all_data.drop(['MasVnrType'], axis=1, inplace=True)
 
         print()
         # all_data.loc[:, 'QuarterSold'] = all_data['YrSold'].astype(str) + 'Q' + (
@@ -123,13 +145,12 @@ class HousePricesPipeline(object):
         all_data['KitchenQual'] = all_data['KitchenQual'].fillna('TA')
         fill_avg_num_cols = []
         fill_zero_num_cols = ['Frontage', 'MasVnrArea',
-                              'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 'BsmtHalfBath', 'BsmtFullBath',
+                              'BsmtUnfSF', 'BsmtHalfBath', 'BsmtFullBath',
                               ]
 
         fill_na_str_cols = ['MasVnrType']
         fill_avg_str_cols = ['Electrical', 'KitchenQual', 'Exterior1st', 'Exterior2nd', #'SaleType',
-                             'MSZoning',
-                             'BsmtFinType1', 'BsmtFinType2']
+                             'MSZoning']
 
         all_data['GarageCars'] = all_data['GarageCars'].fillna(1)
 
