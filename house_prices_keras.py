@@ -186,7 +186,9 @@ class HousePricesPipeline(object):
             model.add(layers.Activation('relu'))
             # model.add(layers.Dense(400, activation='relu'))
             model.add(layers.Dense(1, name='linear',
-                                   kernel_initializer='normal'))
+                                   kernel_initializer='normal',
+                                   kernel_regularizer=regularizers.l1_l2(l1=1e-5, l2=1e-4),
+                                   ))
             # Compile model
             lr_schedule = optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=0.05,
