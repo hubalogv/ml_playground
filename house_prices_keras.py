@@ -85,6 +85,16 @@ class HousePricesPipeline(object):
         all_data = all_data.drop(['Heating', 'RoofMatl', 'Condition2', 'Street', 'Utilities'], axis=1)
         all_data.loc[:, 'NonBedrooms'] = all_data['TotRmsAbvGrd'] - all_data['BedroomAbvGr']
 
+        all_data['SaleType_New'] = all_data['SaleType'].isin(['New']).astype(int)
+        all_data.drop(['SaleType'], axis=1, inplace=True)
+
+        all_data['SaleCondition_Partial'] = all_data['SaleCondition'].isin(['Partial']).astype(int)
+        all_data.drop(['SaleCondition'], axis=1, inplace=True)
+
+        all_data.drop(['PavedDrive', 'PoolQC', 'Fence'], axis=1, inplace=True)
+        print (all_data.head())
+
+        print()
         # all_data.loc[:, 'QuarterSold'] = all_data['YrSold'].astype(str) + 'Q' + (
         #     (all_data['MoSold'] / 3).apply(np.floor)).astype(str)
         # all_data = all_data.drop(['YrSold', 'MoSold'], axis=1)
@@ -109,7 +119,7 @@ class HousePricesPipeline(object):
                               ]
 
         fill_na_str_cols = ['MasVnrType']
-        fill_avg_str_cols = ['Electrical', 'KitchenQual', 'Exterior1st', 'Exterior2nd', 'SaleType',
+        fill_avg_str_cols = ['Electrical', 'KitchenQual', 'Exterior1st', 'Exterior2nd', #'SaleType',
                              'MSZoning', 'Functional',
                              'BsmtFinType1', 'BsmtFinType2']
 
@@ -233,9 +243,9 @@ class HousePricesPipeline(object):
             save_best_only=True)
 
         es_callback = tf.keras.callbacks.EarlyStopping(
-            monitor='val_loss' if is_validated else 'loss',
+            monitor='val_rmsle' if is_validated else 'loss',
             patience=500,
-            min_delta=100 if is_validated else 50,
+            min_delta=0.0001 if is_validated else 50,
             restore_best_weights=True)
 
         log_dir = r'C:\_ws\ML\logs\fit' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -274,6 +284,7 @@ class HousePricesPipeline(object):
             results['Median Absolutel error'] = median_absolute_error(y_valid, preds)
             results['MAE']= mean_absolute_error(y_valid, preds)
             results['RMSLE'] = np.sqrt(mean_squared_log_error(y_valid, preds))
+            results['RMSLE2'] =rmsle(y_valid, preds)
             print(results)
         else:
             results = {}
@@ -336,14 +347,14 @@ if __name__ == '__main__':
     pl = HousePricesPipeline()
     pl.load_data()
     pl.pre_process_data()
-    if 1:
+    if 0:
         x_train, x_valid, y_train, y_valid = train_test_split(pl.x, pl.y,
                                                           train_size=0.8,
                                                           test_size=0.2,
                                                           random_state=random_seed)
         pl.train_eval(x_train, x_valid, y_train, y_valid)
 
-    if 0:
+    if 1:
         pl.cross_validation()
     if 0:
         model = pl.train_eval(pl.x, None, pl.y, None)[0]
