@@ -92,7 +92,15 @@ class HousePricesPipeline(object):
         all_data.drop(['SaleCondition'], axis=1, inplace=True)
 
         all_data.drop(['PavedDrive', 'PoolQC', 'Fence'], axis=1, inplace=True)
-        print (all_data.head())
+
+        # this caused a mild drop in the score
+        all_data.drop(['GarageCond', 'GarageQual', 'GarageFinish', 'GarageType', 'FireplaceQu'], axis=1, inplace=True)
+
+        all_data['Functional_Typ'] = all_data['Functional'].isin(['Typ']).astype(int)
+        all_data.drop(['Functional'], axis=1, inplace=True)
+
+        all_data['HeatingQC_Gd'] = all_data['HeatingQC'].isin(['Gd']).astype(int)
+        all_data.drop(['HeatingQC'], axis=1, inplace=True)
 
         print()
         # all_data.loc[:, 'QuarterSold'] = all_data['YrSold'].astype(str) + 'Q' + (
@@ -120,7 +128,7 @@ class HousePricesPipeline(object):
 
         fill_na_str_cols = ['MasVnrType']
         fill_avg_str_cols = ['Electrical', 'KitchenQual', 'Exterior1st', 'Exterior2nd', #'SaleType',
-                             'MSZoning', 'Functional',
+                             'MSZoning',
                              'BsmtFinType1', 'BsmtFinType2']
 
         all_data['GarageCars'] = all_data['GarageCars'].fillna(1)
