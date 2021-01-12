@@ -116,13 +116,44 @@ class HousePricesPipeline(object):
         all_data.drop(['BsmtQual'], axis=1, inplace=True)
 
         all_data.drop(['Foundation'], axis=1, inplace=True)
-        if 0:
-            all_data.drop(['ExterCond'], axis=1, inplace=True)
-            all_data['ExterQual_Gd'] = all_data['ExterQual'].isin(['Gd']).astype(int)
-            all_data['ExterQual_TA'] = all_data['ExterQual'].isin(['TA']).astype(int)
-            all_data.drop(['ExterQual'], axis=1, inplace=True)
 
-            all_data.drop(['MasVnrType'], axis=1, inplace=True)
+        all_data.drop(['ExterCond'], axis=1, inplace=True)
+        all_data['ExterQual_Gd'] = all_data['ExterQual'].isin(['Gd']).astype(int)
+        all_data['ExterQual_TA'] = all_data['ExterQual'].isin(['TA']).astype(int)
+        all_data.drop(['ExterQual'], axis=1, inplace=True)
+
+
+        all_data.drop(['MasVnrType'], axis=1, inplace=True)
+        # RMLSE:  0.11305763487072103
+
+        if 0:
+            #n eeds work
+            rare_mat2 = ['AsphShn', 'Brk Cmn', 'BrkFace', 'CBlock', 'CmentBd', 'HdBoard', 'ImStucc', 'MetalSd',
+                    'Plywood', 'Stone', 'Stucco', 'Wd Shng', 'MasVnrType', 'None']
+            all_data['Exterior2nd'].replace(rare_mat2, 'Other', inplace=True)
+
+            rare_mat1 = ['AsphShn', 'BrkComn', 'CBlock', 'CemntBd', 'HdBoard', 'ImStucc', 'MetalSd',
+                    'Plywood', 'Stone', 'Stucco', 'VinylSd', 'Wd Sdng', 'WdShing', 'None']
+            all_data['Exterior1st'].replace(rare_mat1, 'Other', inplace=True)
+            # RMLSE:  0.11352855623541411
+
+
+        if 0:
+            all_data.drop(['RoofStyle', 'HouseStyle'], axis=1, inplace=True)
+
+            all_data['BldgType_Twnhs'] = all_data['BldgType'].isin(['Twnhs']).astype(int)
+            all_data['BldgType_TwnhsE'] = all_data['BldgType'].isin(['TwnhsE']).astype(int)
+            all_data.drop(['BldgType'], axis=1, inplace=True)
+
+            all_data['Condition1_Norm'] = all_data['Condition1'].isin(['Norm']).astype(int)
+            all_data.drop(['Condition1'], axis=1, inplace=True)
+
+        if 0:
+            negborhoods = ['Blueste', 'BrDale', 'BrkSide', 'Gilbert', 'IDOTRR', 'MeadowV', 'NAmes',
+                    'NPkVill', 'NWAmes', 'NoRidge', 'OldTown', 'SWISU', 'SawyerW', 'Veenker']
+            all_data['Neighborhood'].replace(negborhoods, 'Other', inplace=True)
+
+
 
         print()
         # all_data.loc[:, 'QuarterSold'] = all_data['YrSold'].astype(str) + 'Q' + (
@@ -178,6 +209,8 @@ class HousePricesPipeline(object):
         #     X_test[col] = label_encoder.transform(X_test[col])
 
         all_data = pd.get_dummies(all_data, drop_first=True)
+
+        print(list(all_data.columns))
 
         self.x = all_data.iloc[:x_length]
         self.x_test = all_data.iloc[x_length:]
