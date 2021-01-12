@@ -9,14 +9,23 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, FunctionTransformer
 from tensorflow.keras.wrappers.scikit_learn import KerasRegressor
-from tensorflow.keras import layers
+from tensorflow.keras import layers, optimizers
 from tensorflow.keras.models import Sequential
 
 def linear(input_dim):
     model = Sequential()
     model.add(layers.Dense(1, input_dim=input_dim))
     # Compile model
-    model.compile(loss='mae', optimizer='adam',  metrics=["mean_squared_logarithmic_error"])
+    model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=0.1))
+    return model
+
+
+def flat(input_dim):
+    model = Sequential()
+    model.add(layers.Dense(20, input_dim=input_dim))
+    model.add(layers.Activation('relu'))
+    model.add(layers.Dense(1))
+    model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=0.1))
     return model
 
 def preprocess_data(data):
@@ -35,6 +44,7 @@ def preprocess_data(data):
     # data['MoSold'] = data['MoSold'].apply(str)
     # data.drop(['YrSold'], axis=1)
 
+    data = data[['LotArea', 'GrLivArea', 'OverallQual', 'GarageCars']]
     return data
 
 # Read the data
@@ -71,11 +81,11 @@ preprocessor = ColumnTransformer(
     ])
 
 # model = LinearRegression()
-model = RandomForestRegressor(n_estimators=100, random_state=4)
+# model = RandomForestRegressor(n_estimators=100, random_state=4)
 # model = ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3)
 
-# constr = partial(linear, 315)
-# model = KerasRegressor(build_fn=constr, nb_epoch=100, batch_size=100, verbose=True)
+constr = partial(flat, X.shape[1])
+model = KerasRegressor(build_fn=constr, epochs=100, batch_size=50, verbose=1, )
 
 my_pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
@@ -116,7 +126,7 @@ if 1:
     # Multiply by -1 since sklearn calculates *negative* MAE
     scores = -1 * cross_val_score(my_pipeline, X, y,
                                   cv=5,
-                                  scoring='neg_mean_squared_log_error', verbose=True)
+                                  scoring='neg_mean_absolute_error', verbose=True)
 
-    print("Average MRSLE CV score:", np.sqrt(scores.mean()))
+    print("Average MRSLE CV score:", scores.mean())
     # Average MRSLE CV score: 0.1402649418684216
