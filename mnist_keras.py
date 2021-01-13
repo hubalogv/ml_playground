@@ -40,6 +40,7 @@ def conv_model_2():
     mod.add(layers.MaxPooling2D(pool_size=(2, 2)))
     mod.add(layers.Flatten())
     mod.add(layers.Dense(64, activation='relu'))
+    mod.add(layers.Dropout(0.2))
     mod.add(layers.Dense(10, activation='softmax'))
     mod.compile(
         optimizer='adam',
