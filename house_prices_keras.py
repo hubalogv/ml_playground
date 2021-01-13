@@ -83,7 +83,7 @@ class HousePricesPipeline(object):
         # all_data.loc[:, 'OtherPorch'] = all_data['3SsnPorch'] + all_data['ScreenPorch']
         # all_data.drop(['3SsnPorch', 'ScreenPorch'], axis=1, inplace=True)
         all_data = all_data.drop(['Heating', 'RoofMatl', 'Condition2', 'Street', 'Utilities'], axis=1)
-        all_data.loc[:, 'NonBedrooms'] = all_data['TotRmsAbvGrd'] - all_data['BedroomAbvGr']
+        # all_data.loc[:, 'NonBedrooms'] = all_data['TotRmsAbvGrd'] - all_data['BedroomAbvGr']
 
         # permutation analysis transforms start here:
         all_data['SaleType_New'] = all_data['SaleType'].isin(['New']).astype(int)
@@ -125,6 +125,34 @@ class HousePricesPipeline(object):
 
         all_data.drop(['MasVnrType'], axis=1, inplace=True)
         # RMLSE:  0.11305763487072103
+
+        # all_data['LotSize'] = all_data['LotFrontage'] + all_data['LotArea']
+        # all_data.drop(['LotFrontage', 'LotArea'], axis=1, inplace=True)
+
+        if 1:
+            all_data.drop(['LandContour', 'LotShape', 'Alley'], axis=1, inplace=True)
+
+            all_data['LotConfig_CulDSac'] = all_data['LotConfig'].isin(['CulDSac']).astype(int)
+            all_data['LotConfig_Inside'] = all_data['LotConfig'].isin(['Inside']).astype(int)
+            all_data['LotConfig'].replace(['FR2', 'FR3'], 'FR32', inplace=True)
+            all_data['LotConfig_Inside'] = all_data['LotConfig'].isin(['FR32']).astype(int)
+            all_data.drop(['LotConfig'], axis=1, inplace=True)
+
+            # RMLSE: 0.11309703001423263
+
+        if 1:
+            all_data['MSSubClass_160'] = all_data['MSSubClass'].isin(['160']).astype(int)
+            all_data['MSSubClass_70'] = all_data['MSSubClass'].isin(['70']).astype(int)
+            all_data.drop(['MSSubClass'], axis=1, inplace=True)
+            # RMLSE:  0.11294244224690667
+
+
+
+        if 1:
+            all_data.drop(['3SsnPorch'], axis=1, inplace=True)
+            all_data['Bath'] =  all_data['BsmtFullBath'] +  all_data['FullBath'] +  \
+                                          0.5 * all_data['BsmtHalfBath'] +  0.5 * all_data['HalfBath']
+            # RMLSE:  0.11261052696809785
 
         if 0:
             #n eeds work
