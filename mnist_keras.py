@@ -2,16 +2,16 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from keras.models import Sequential, load_model
-from keras import layers, callbacks
-from keras.wrappers.scikit_learn import KerasClassifier
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras import layers, callbacks
+import tensorflow as tf
+from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from matplotlib import pyplot as plt
 
 random_seed = 2
-from numpy.random import seed
-seed(random_seed)
-from tensorflow.random import set_seed
-set_seed(random_seed)
+
+np.random.seed(random_seed)
+tf.random.set_seed(random_seed)
 
 def conv_model_0(): #
     mod = Sequential([
@@ -39,7 +39,8 @@ def conv_model_2():
     mod.add(layers.Conv2D(32, (3, 3), activation="relu"))
     mod.add(layers.MaxPooling2D(pool_size=(2, 2)))
     mod.add(layers.Flatten())
-    mod.add(layers.Dense(256, activation='relu'))
+    mod.add(layers.Dense(64, activation='relu'))
+    mod.add(layers.Dropout(0.2))
     mod.add(layers.Dense(10, activation='softmax'))
     mod.compile(
         optimizer='adam',
@@ -58,7 +59,7 @@ def train():
 
     X_train = X_train.values.reshape(X_train.shape[0], img_rows, img_cols, 1)
     input_shape = (img_rows, img_cols, 1)
-    X = X_train / 255.0
+    X_train = X_train / 255.0
     X_train, X_val, Y_train, Y_val = train_test_split(X_train, Y_train, test_size=0.1, random_state=random_seed)
     print(X_train.shape)
     assert isinstance(Y_val, pd.Series)
@@ -79,14 +80,14 @@ def train():
     history = model.fit(X_train, Y_train,
                         validation_data=(X_val, Y_val),
                         callbacks=[model_checkpoint_callback],
-                        epochs=10, batch_size=200)
+                        epochs=20, batch_size=200)
 
     history_df = pd.DataFrame(history.history)
     print(history_df.loc[:, ['loss', 'val_loss']])
     return model
 
 def test(model):
-    print(model.summary())
+    # print(model.summary())
 
     X_test = pd.read_csv(r"C:\_ws\datasets\mnist\test.csv")
     X_test = X_test / 255.0
@@ -117,15 +118,15 @@ def eval(model):
 
     pred = np.argmax(model.predict(X), axis=1)
 
-    print(list(pred))
-    print(list(Y_train))
+    # print(list(pred))
+    # print(list(Y_train))
     print('accuracy: ', accuracy_score(Y_train, pred))
 
 
 
 if __name__ == '__main__':
     # model = load_model('mnist.27-0.9910.h5')
-    model = load_model('mnist.08-0.9826.h5')
-    # model = train()
-    # eval(model)
+    # model = load_model('mnist.08-0.9826.h5')
+    model = train()
+    eval(model)
     test(model)

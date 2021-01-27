@@ -1,11 +1,12 @@
 import pandas as pd
+import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.metrics import accuracy_score
 
-from keras.models import Sequential
-from keras import layers
-from keras.wrappers.scikit_learn import KerasClassifier
+from tensorflow.keras.models import Sequential
+from tensorflow.keras import layers
+from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 
 train = pd.read_csv(r"C:\_ws\datasets\mnist\train.csv")
 test = pd.read_csv(r"C:\_ws\datasets\mnist\test.csv")
