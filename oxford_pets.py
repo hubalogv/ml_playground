@@ -5,6 +5,12 @@
 import os
 import  matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import load_img
+from tensorflow.keras import layers
+import PIL
+from PIL import ImageOps
+
 
 input_dir = r"C:\_ws\datasets\OxfordPets\images"
 target_dir = r"C:\_ws\datasets\OxfordPets\annotations\trimaps"
@@ -36,10 +42,6 @@ for input_path, target_path in zip(input_img_paths[:10], target_img_paths[:10]):
 ## What does one input image and corresponding segmentation mask look like?
 """
 
-from IPython.display import Image, display
-from tensorflow.keras.preprocessing.image import load_img
-import PIL
-from PIL import ImageOps
 
 # Display input image #7
 plt.imshow(mpimg.imread(input_img_paths[9]))
@@ -47,7 +49,7 @@ plt.show()
 
 # Display auto-contrast version of corresponding target (per-pixel categories)
 img = PIL.ImageOps.autocontrast(load_img(target_img_paths[9]))
-display(img)
+plt.imshow(img)
 
 """
 ## Prepare `Sequence` class to load & vectorize batches of data
@@ -92,7 +94,6 @@ class OxfordPets(keras.utils.Sequence):
 ## Prepare U-Net Xception-style model
 """
 
-from tensorflow.keras import layers
 
 
 def get_model(img_size, num_classes):
@@ -213,7 +214,7 @@ def display_mask(i):
     mask = np.argmax(val_preds[i], axis=-1)
     mask = np.expand_dims(mask, axis=-1)
     img = PIL.ImageOps.autocontrast(keras.preprocessing.image.array_to_img(mask))
-    display(img)
+    plt.imshow(img)
 
 
 # Display results for validation image #10
@@ -225,7 +226,7 @@ plt.show()
 
 # Display ground-truth target mask
 img = PIL.ImageOps.autocontrast(load_img(val_target_img_paths[i]))
-display(img)
+plt.imshow(img)
 
 # Display mask predicted by our model
 display_mask(i)  # Note that the model only sees inputs at 150x150.

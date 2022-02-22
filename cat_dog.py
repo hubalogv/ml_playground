@@ -1,21 +1,28 @@
 # Importing the Keras libraries and packages
+import numpy as np
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import layers
 from tensorflow.keras import optimizers, callbacks
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.applications.resnet50 import ResNet50
+from tensorflow.keras.applications import ResNet50, ResNet50V2
 from tensorflow.keras.applications.vgg16 import VGG16
 
 
-def build_custom_model():
+random_seed = 2
+
+np.random.seed(random_seed)
+tf.random.set_seed(random_seed)
+
+def build_custom_model(input_shape):
     # Initialising the CNN
     mod = Sequential()
     # Step 1 - Convolution
-    mod.add(layers.Conv2D(32, (3, 3), input_shape=(64, 64, 3), activation='relu'))
+    mod.add(layers.Conv2D(64, (3, 3), input_shape=input_shape, activation='relu'))
     # Step 2 - Pooling
     mod.add(layers.MaxPooling2D(pool_size=(2, 2)))
     # Adding a second convolutional layer
-    mod.add(layers.Conv2D(32, (3, 3), activation='relu'))
+    mod.add(layers.Conv2D(64, (3, 3), activation='relu'))
     mod.add(layers.MaxPooling2D(pool_size=(2, 2)))
     # Step 3 - Flattening
     mod.add(layers.Flatten())
@@ -26,9 +33,9 @@ def build_custom_model():
     mod.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return mod
 
-def build_resnet50():
+def build_resnet50(input_shape):
     mod = Sequential()
-    res = ResNet50(include_top=False, input_shape=(64, 64, 3), pooling='avg', weights='imagenet')
+    res = ResNet50(include_top=False, input_shape=input_shape, pooling='avg', weights='imagenet')
     # res.trainable = False
     mod.add(res)
     # mod.add(layers.Flatten())
@@ -49,58 +56,79 @@ def build_resnet50():
     return mod
 
 
-if __name__ == '__main__':
+class pipeline(object):
 
-    model = build_resnet50()
-    # model = build_custom_model()
+    def __init__(self):
+        self.target_size = (64, 64, 3)
+        self.batch_size = 32
+        self.model = None
 
-    data_path = r'C:\_ws\datasets\cat_dog'
-    batch_size = 32
-    target_size = (256, 256)
+    def build_model(self):
+        # self.model = build_resnet50(self.target_size)
+        self.model = build_custom_model(self.target_size)
 
-    train_data_gen = ImageDataGenerator(validation_split=0.2,
-                                        rescale=1./255,
-                                        shear_range=0.2,
-                                        zoom_range=0.2,
-                                        brightness_range=(0.8, 1.2),
-                                        rotation_range=40,
-                                        horizontal_flip=True)
+    def train(self):
+
+        self.data_path = r'C:\_ws\datasets\cat_dog'
+
+        train_data_gen = ImageDataGenerator(validation_split=0.2,
+                                            rescale=1./255,
+                                            shear_range=0.2,
+                                            zoom_range=0.2,
+                                            brightness_range=(0.8, 1.2),
+                                            rotation_range=40,
+                                            horizontal_flip=True)
 
 
-    training_set = train_data_gen.flow_from_directory(data_path + r'\training_set',
-                                                      subset='training',
-                                                      target_size=target_size,
-                                                      batch_size=batch_size,
-                                                      class_mode='binary')
-    validation_set = train_data_gen.flow_from_directory(data_path + r'\training_set',
-                                                        subset='validation',
-                                                        target_size=target_size,
-                                                        batch_size=batch_size,
-                                                        class_mode='binary')
+        training_set = train_data_gen.flow_from_directory(self.data_path + r'\training_set',
+                                                          subset='training',
+                                                          target_size=self.target_size[0:2],
+                                                          batch_size=self.batch_size,
+                                                          class_mode='binary',
+                                                          # seed=random_seed,
+                                                          # shuffle=False
+                                                          )
+        self.validation_set = train_data_gen.flow_from_directory(self.data_path + r'\training_set',
+                                                            subset='validation',
+                                                            target_size=self.target_size[0:2],
+                                                            batch_size=self.batch_size,
+                                                            class_mode='binary',
+                                                            # seed=random_seed,
+                                                            # shuffle=False
+                                                            )
 
-    es_callback = callbacks.EarlyStopping(
-        monitor='val_accuracy',
-        patience=9,
-        min_delta=0.001,
-        restore_best_weights=True)
+        es_callback = callbacks.EarlyStopping(
+            monitor='val_accuracy',
+            patience=9,
+            min_delta=0.001,
+            restore_best_weights=True)
 
-    model.fit(training_set,
-              steps_per_epoch=int(training_set.samples / batch_size),
-              epochs=100,
-              validation_data=validation_set,
-              validation_steps=int(validation_set.samples / batch_size),
-              callbacks=[es_callback, callbacks.ReduceLROnPlateau(monitor='val_accuracy', patience=5)])
-    # Part 3 - Making new predictions
+        self.model.fit(training_set,
+                  steps_per_epoch=int(training_set.samples / self.batch_size),
+                  epochs=100,
+                  validation_data=self.validation_set,
+                  validation_steps=int(self.validation_set.samples / self.batch_size),
+                  callbacks=[es_callback, callbacks.ReduceLROnPlateau(monitor='val_accuracy', patience=5)])
+        # Part 3 - Making new predictions
 
-    if 1:
-        result = model.evaluate(validation_set)
-        print(result)
+        self.model.save(r"output/catdog/models/resnet.h5")
 
-    if 0:
+    def evaluate(self):
+            result = self.model.evaluate(self.validation_set)
+            print(result)
+
+    def test(self):
         test_datagen = ImageDataGenerator(rescale=1./255)
-        test_set = test_datagen.flow_from_directory(data_path + r'\test_set',
-                                                    target_size=(64, 64),
-                                                    batch_size=32,
+        test_set = test_datagen.flow_from_directory(self.data_path + r'\test_set',
+                                                    target_size=self.target_size[0:2],
+                                                    batch_size=self.batch_size,
                                                     class_mode='binary')
-        result = model.evaluate(test_set)
+        result = self.model.evaluate(test_set)
         print(result)
+
+if __name__ == '__main__':
+    p = pipeline()
+    p.build_model()
+    p.train()
+    p.evaluate()
+    p.test()

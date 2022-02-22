@@ -12,10 +12,9 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 random_seed = 2
-from numpy.random import seed
-seed(random_seed)
-from tensorflow.random import set_seed
-set_seed(random_seed)
+
+np.random.seed(random_seed)
+tf.random.set_seed(random_seed)
 
 class CustomCallback(callbacks.Callback):
 

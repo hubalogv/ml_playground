@@ -56,7 +56,7 @@ def train():
 
     img_rows = 28
     img_cols = 28
-
+    # X_train.applymap(lambda x: 255 if x > 10 else 0)
     X_train = X_train.values.reshape(X_train.shape[0], img_rows, img_cols, 1)
     input_shape = (img_rows, img_cols, 1)
     X_train = X_train / 255.0

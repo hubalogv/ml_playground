@@ -3,14 +3,18 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras import layers, callbacks, optimizers, initializers
+from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
+
 random_seed = 2
 from numpy.random import seed
 seed(random_seed)
 
-
 X = np.random.rand(1000)
-y = np.sin(X * 10)
-y = np.power(X, 3) + 1
+# y = np.sin(X * 10)
+y = np.power(X, 5) + 1 + np.sin(X * 10)
 # y = 4 * X + 3
 
 # sns.scatterplot(x=X, y=y)
@@ -22,17 +26,19 @@ if 1:
 
     def linear(input_dim):
         model = Sequential()
-        model.add(layers.Dense(2, input_dim=input_dim))
+        model.add(layers.Dense(4, input_dim=input_dim,
+                               # kernel_initializer=initializers.random_normal(),
+                               # bias_initializer=initializers.random_normal(),
+                               ))
         model.add(layers.Activation('tanh'))
-        model.add(layers.Dense(1))
+        model.add(layers.Dense(1,
+                               # kernel_initializer=initializers.random_normal(),
+                               # bias_initializer=initializers.random_normal(),
+                               ))
         # Compile model
-        model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=0.01))
+        model.compile(loss='mae', optimizer=optimizers.Adam(learning_rate=0.1))
         return model
 
-    from sklearn.model_selection import train_test_split
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras import layers, callbacks, optimizers
-    from sklearn.metrics import mean_absolute_error, mean_squared_log_error, max_error, median_absolute_error
 
 
     X_train, X_valid, y_train, y_valid = train_test_split(X, y,
@@ -48,7 +54,7 @@ if 1:
         X_train, y_train,
         validation_data=(X_valid, y_valid),
         batch_size=100,
-        epochs=50
+        epochs=300
     )
     print (model.layers[0].get_weights())
     print (model.layers[2].get_weights())
@@ -62,9 +68,14 @@ if 1:
         b = b_array[i]
         data = X * w + b
         sns.scatterplot(x=X, y=data)
-        sns.scatterplot(x=X, y=np.tanh(data)*weights2[0][i][0])
+    plt.show()
 
-    # plt.show()
+    for i in range(len(w_array[0])):
+        w = w_array[0][i]
+        b = b_array[i]
+        data = X * w + b
+        sns.scatterplot(x=X, y=np.tanh(data)*weights2[0][i][0])
+    plt.show()
 
     if 0:
         # Show the learning curves
@@ -72,7 +83,6 @@ if 1:
         history_df.loc[:, ['loss', 'val_loss']].plot()
         plt.show()
 
-    plt.show()
     if 1:
         preds = model.predict(X_valid)[:,0]
         sns.scatterplot(x=X, y=y)
@@ -85,6 +95,7 @@ if 1:
 
         # sns.displot(y_valid - preds)
 
-    plt.show()
+        plt.show()
+
 
 
